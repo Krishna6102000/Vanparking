@@ -1,0 +1,205 @@
+﻿@{
+    Layout = "_Layout";
+
+    var slots = ViewBag.Slots as List<ParkingSlot> ?? new List<ParkingSlot>();
+    var vans = ViewBag.Vans as List<Van> ?? new List<Van>();
+
+    int total = slots.Count;
+    int occupied = slots.Count(x => x.IsOccupied);
+    int available = total - occupied;
+}
+
+<div class="container-fluid">
+
+    <!-- 🔷 Dashboard -->
+    <h3>Dashboard</h3>
+    <!-- 🔷 Cards -->
+    <div class="row mb-4 ">
+        <div class="col-md-3 ">
+            <div class="card p-3 text-center shadow-sm bg-danger">
+            
+                <h2 class="text-white" >@total</h2>
+                <p class="text-light">Total Slots</p>
+            </div>         
+        </div>
+
+        <div class="col-md-3">
+            <div class="card p-3 text-center shadow-sm bg-success">
+                <h2 class="text-white">@occupied</h2>
+                <p class="text-light">Occupied Slots</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card p-3 text-center shadow-sm bg-warning">
+                <h2 class="text-white">@available</h2>
+                <p class="text-light">Available Slots</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card p-3 text-center shadow-sm bg-secondary">
+                <h2 class="text-white">@vans.Count</h2>
+                <p class="text-light">Vans Parked</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔷 Form + Table -->
+    <div class="row">
+
+        <!-- 🚐 Park Van -->
+        <div class="col-md-4">
+            <div class="card p-3 shadow-sm">
+                <h5>Park New Van</h5>
+
+                <form method="post" action="/Home/Park">
+
+                    <div class="mb-2">
+                        <label>Vehicle Number</label>
+                        <input type="text" name="vehicleNumber"
+                               class="form-control"
+                               placeholder="Enter Vehicle Number"
+                               required />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Select Available Slot</label>
+
+                        <select name="slotId" class="form-control" required>
+                            <option value="">-- Select Slot --</option>
+
+                            @foreach (var s in slots)
+                            {
+                                if (!s.IsOccupied)
+                                {
+                                    <option value="@s.SlotId">
+                                        @s.SlotNumber
+                                    </option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <button class="btn btn-primary w-100 mt-2">
+                        Park Van
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 📋 Recent Vans -->
+        <div class="col-md-8">
+            <div class="card p-3 shadow-sm">
+                <h5>Recent Parked Vans</h5>
+
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Vehicle</th>
+                            <th>Slot</th>
+                            <th>Entry Time</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (var v in vans)
+                        {
+                            <tr>
+                                <td>@v.VanId</td>
+                                <td>@v.VehicleNumber</td>
+                                <td>@v.SlotId</td>
+                                <td>@v.EntryTime.ToString("dd-MMM-yyyy hh:mm tt")</td>
+                                <td>
+                                    <a class="btn btn-success btn-sm"
+                                       href="/Home/Exit?vanId=@v.VanId&slotId=@v.SlotId">
+                                        Exit
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 🔷 Slot Status -->
+    <div class="row">
+        @foreach (var s in slots ?? new List<ParkingSlot>())
+        {
+            var van = vans?.FirstOrDefault(v => v.SlotId == s.SlotId);
+
+            string vehicle = van?.VehicleNumber ?? "";
+            string entryTime = van != null
+            ? van.EntryTime.ToString("dd-MMM-yyyy hh:mm tt")
+            : "";
+
+            <div class="col-lg-2 col-md-3 col-sm-4 col-6 mb-3">
+                <div class="slot-box text-center p-3 rounded shadow-sm"
+                     style="cursor:pointer;
+                            background:@(s.IsOccupied ? "#28a745" : "#dee2e6");
+                            color:@(s.IsOccupied ? "white" : "black");"
+                     onclick="@(s.IsOccupied
+                                         ? $"showPopup('{vehicle}','{entryTime}')"
+                                         : "")">
+
+                <h6 class="mb-1">@s.SlotNumber</h6>
+                <small>@(s.IsOccupied ? "Occupied" : "Available")</small>
+
+                </div>
+            </div>
+            <style>
+                .slot-box {
+                    transition: 0.3s;
+                    border-radius: 10px;
+                    min-height: 80px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                }
+
+                    .slot-box:hover {
+                        transform: scale(1.05);
+                        box-shadow: 0px 4px 10px rgba(0,0,0,0.2);
+                    }
+            </style>
+                }
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="vanModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">Parked Vehicle Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p><b>Vehicle Number:</b> <span id="vehNo"></span></p>
+                    <p><b>Entry Time:</b> <span id="entryTime"></span></p>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-success" data-bs-dismiss="modal">Exit</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    function showPopup(vehicle, time) {
+        document.getElementById("vehNo").innerText = vehicle;
+        document.getElementById("entryTime").innerText = time;
+
+        var myModal = new bootstrap.Modal(document.getElementById('vanModal'));
+        myModal.show();
+    }
+</script>
+
